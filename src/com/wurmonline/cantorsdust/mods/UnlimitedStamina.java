@@ -19,22 +19,27 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javassist.bytecode.Descriptor;
+import javassist.expr.ExprEditor;
+import javassist.expr.MethodCall;
 import org.gotti.wurmunlimited.modloader.classhooks.HookException;
 import org.gotti.wurmunlimited.modloader.classhooks.HookManager;
 import org.gotti.wurmunlimited.modloader.interfaces.Configurable;
 import org.gotti.wurmunlimited.modloader.interfaces.PreInitable;
 import org.gotti.wurmunlimited.modloader.interfaces.WurmMod;
 
-public class UnlimitedFatigue implements WurmMod, Configurable, PreInitable {
+public class UnlimitedStamina implements WurmMod, Configurable, PreInitable {
     private Logger _logger = Logger.getLogger(this.getClass().getName());
-    private boolean _unlimitedFatigueOn = true;
+    private boolean _unlimitedStaminaOn = true;
+    private boolean _unlimitedStaminaMovingOn = true;
 
-    public UnlimitedFatigue() {
+    public UnlimitedStamina() {
     }
 
     public void configure(Properties properties) {
-        this._unlimitedFatigueOn = Boolean.valueOf(properties.getProperty("unlimitedFatigueOn", Boolean.toString(this._unlimitedFatigueOn))).booleanValue();
-        this.Log("Unlimited Fatigue On: ", this._unlimitedFatigueOn);
+        this._unlimitedStaminaOn = Boolean.valueOf(properties.getProperty("unlimitedStaminaOn", Boolean.toString(this._unlimitedStaminaOn))).booleanValue();
+        this.Log("Unlimited Stamina On: ", this._unlimitedStaminaOn);
+        this._unlimitedStaminaMovingOn = Boolean.valueOf(properties.getProperty("unlimitedStaminaMovingOn", Boolean.toString(this._unlimitedStaminaMovingOn))).booleanValue();
+        this.Log("Unlimited Moving Stamina On: ", this._unlimitedStaminaMovingOn);
     }
 
     private void Log(String forFeature, boolean activated) {
@@ -42,12 +47,19 @@ public class UnlimitedFatigue implements WurmMod, Configurable, PreInitable {
     }
 
     public void preInit() {
-        if(this._unlimitedFatigueOn) {
-            this.UnlimitedFatigueFunction();
+        if(this._unlimitedStaminaOn) {
+            this.UnlimitedStaminaFunction();
         }
+
+        else {
+            if(this._unlimitedStaminaMovingOn) {
+                this.UnlimitedStaminaMovingFunction();
+            }
+        }
+
     }
 
-    private void UnlimitedFatigueFunction() {
+    private void UnlimitedStaminaFunction() {
         try {
             ClassPool classPool = HookManager.getInstance().getClassPool();
             CtClass ex = HookManager.getInstance().getClassPool().get("com.wurmonline.server.creatures.CreatureStatus");
@@ -64,6 +76,26 @@ public class UnlimitedFatigue implements WurmMod, Configurable, PreInitable {
             method = null;
             parameters = null;
             ex = null;
+        } catch (NotFoundException | CannotCompileException var4) {
+            throw new HookException(var4);
+        }
+    }
+
+
+    private void UnlimitedStaminaMovingFunction() {
+        try {
+            ClassPool classPool = HookManager.getInstance().getClassPool();
+            CtClass e = HookManager.getInstance().getClassPool().get("com.wurmonline.server.creatures.MovementScheme");
+            CtMethod move = e.getDeclaredMethod("move");
+            move.instrument(new ExprEditor() {
+                public void edit(MethodCall methodCall) throws CannotCompileException {
+                    //if(methodCall.getClassName().equals("com.wurmonline.server.creatures.MovementScheme") && methodCall.getMethodName().equals("modifyStamina")) {
+                    if(methodCall.getMethodName().equals("modifyStamina")) {
+                        String replaceString = "\n";
+                        methodCall.replace(replaceString);
+                    }
+                }
+            });
         } catch (NotFoundException | CannotCompileException var4) {
             throw new HookException(var4);
         }
